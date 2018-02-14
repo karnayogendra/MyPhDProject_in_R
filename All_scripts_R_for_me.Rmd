@@ -1,0 +1,981 @@
+---
+title: "Data Analysis and Management in R"
+author: "Yogendra Karna"
+date: "12 February 2018"
+output: html_document
+---
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r setup, include=FALSE, eval=TRUE}
+knitr::opts_chunk$set(warning=FALSE, error=FALSE, message=FALSE,cache=T, eval=T,  echo=T)
+knitr::opts_knit$set(root.dir = 'F:/RQ1_RQ2')
+```
+
+```{r install_rmarkdown, eval = FALSE}
+install.packages("rmarkdown", repos = "https://cloud.r-project.org")
+# learn more about markdown and Knitt r from Paul file in this project saved
+```
+
+```{r lib_rmarkdown, eval = FALSE}
+library(rmarkdown)
+```
+
+## Aggregation of the codes and output in R
+
+This is an aggregation of all the codes, output, issue and solution during learning stage of R software since I started to work for my PhD research project. We can find all the documents and comments that I have written during the learning process which was stored udner several R file name and fragmented in the different folders over different machine. I would try to work on this document onwards so that I will find all the codes I ran through and the solution of the problem that I faced overtime.
+
+```{r Basic about R}
+x <- c(1,2,3,4,5,6) # C 1 to 6 by typing in R
+x # print x
+x <- seq(1, to =6) # sequence 1 to 6
+x
+x <- 1:6 # by using colon
+x
+## for detail please have a look R tutorial provided during the VicBioCon 2018 (Folder:F:\Conferences\VictorianBiodiversityConference\R_VicBioCon_2018\damr)
+```
+
+```{r basic package for R}
+# install.packages("tidyverse")
+# install.packages("scales")
+# library(tidyverse)
+## The tidyverse is an opinionated collection of R packages designed for data science. All packages share an underlying design philosophy, grammar, and data structures. 
+```
+```{r installing necessary packages for lidar data processing}
+# install.packages("lidR")
+# library(lidR)
+# # install.packages("rlas")
+# library(rlas)
+# # install.packages("magrittr")
+# library(magrittr)
+# # install.packages("dplyr")
+# library(dplyr)
+# # install.packages("data.table")
+# library(data.table)
+# # install.packages("rgdal")
+# library(rgdal)
+# # install.packages("raster")
+# library(raster)
+# # install.packages("rgeos")
+# library(rgeos)
+# # install.packages("sp")
+# library(sp)
+# # install.packages("EBImage")
+# library(EBImage)
+# # install.packages("plyr")
+library(tidyverse)
+library(plyr)
+library(Rcpp)
+library(knitr)
+library(rgl)
+library(lidR)
+library(rlas)
+library(magrittr)
+library(dplyr)
+library(data.table)
+library(rgdal)
+library(raster)
+library(rgeos)
+library(sp)
+library(EBImage)
+library(ggplot2)
+library(readxl)
+#devtools::install_github("Jean-Romain/lidR", dependencies=TRUE)
+```
+
+```{r reading the lidar dataset}
+readNorm <- readLAS("F:/RQ1_RQ2/data/normalised/Subplot/16_ROI4_norm_1.las")
+readNorm # displaying data attribute, show coord ref NA
+str(readNorm) # gives the structure of data
+summary(readNorm) # gibes the summary of data
+# head(readNorm) # display the first 6 rows of the data set attributes, doesn't work for s4 object only work for s3: need to know s3 and s4 object
+readNorm@header # display the header of the data
+# tail(readNorm) # display the last 6 rows of the data attributes, also doesn't work for lidar data
+datafilter <- lasfilter(readNorm, Z>=0 & Z <=50) # filtering data
+plot(Nfilter)
+summary(datafilter) # plotting the datasets
+z <- readNorm@data$Z # provides the z value
+hist(z, n=100) # plots shows the 10 breakpoints of histogram cell
+ret <- readNorm@data$ReturnNumber # provides the return number of data
+surface1stret <- readNorm@data$Intensity[readNorm@data$ReturnNumber == 1] # subsetting the return number 1 from dataset
+surface2ndret <- readNorm@data$Intensity[readNorm@data$ReturnNumber == 2]
+surface3rdret <- readNorm@data$Intensity[readNorm@data$ReturnNumber == 3]
+surface4thret <- readNorm@data$Intensity[readNorm@data$ReturnNumber == 4]
+surface5thret <- readNorm@data$Intensity[readNorm@data$ReturnNumber == 5]
+# how to combine those return numbers??
+```
+
+
+```{r setup coordinate system}
+# MGA55 <- "+proj=utm +zone=55 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs"
+# LASfile <- system.file("F:/RQ1_RQ2/data/normalised/Subplot", "16_ROI4_norm_1.las", package="lidR")
+# class(LASfile)
+# lidar <- lidR::readLAS(LASfile)
+# plot(LASfile, MGA55)
+#Error in (function (cl, name, valueClass)  :   ‘crs’ is not a slot in class “character”
+testshp <- readOGR("F:/RQ1_RQ2/processing/11MS200m_CHM.shp")
+crs(testshp) <- "+proj=utm +zone=55 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m" # setting Coord system
+proj4string(testshp) # checking Coord system
+
+```
+## Calculating the Metrics 
+
+Several metrics can be calculated from the lidar datasets, some of the metrices are calculated from the follwing codes:
+
+```{r metric calculation}
+gapFraction = gap_fraction_profile(z)
+summary(gapFraction)
+class(gapFraction)
+str(gapFraction)
+bin <- gapFraction$z # shows the interval height of the gapFraction
+plot(gapFraction, type="l", xlab="Elevation", ylab="Gap fraction") # simple plot of the gap fraction profile
+plot(gapFraction$z~gapFraction$gf, type="l", xlab="Gap fraction", ylab="Elevation")#changing the x and y value of the plot, need to find out data.frame first then you can apply this fucntion
+# getMethods('gap_fraction_profile', 'lidR') #didn't work, older alternatives to findMethods
+findMethods('gap_fraction_profile')
+
+
+# leaf area density calcualtions
+lad = LAD(z)
+plot(lad$z~lad$lad, type="l", cex=2, xlab="Leaf area density", ylab="Elevation (m)",xlim=c(0,0.20), ylim=c(0,35), par(font.axis = 2),  font.lab=2)
+
+zmax <- max(RLas@data$z) # doesn't work
+classR <- RLas@data$Classification
+sapply(Rlas, Classification) # doesn't work
+class(RLas)
+
+myMetrics = function(z)
+{
+  metrics = list(
+    zmean   = mean(z),
+    zmax    = max(z),
+    zsd     = sd(z),
+    zmin    = min(z)
+  )
+  
+  return(metrics)
+}
+answer <- lasmetrics(RLas, myMetrics(Z)) 
+```
+
+
+```{r calcualting our own metrics}
+myMetrics = function(z, i)
+  {
+    metrics = list(
+      zmean   = mean(z),
+      zmax    = max(z),
+      zsd     = sd(z),
+      zmin    = min(z),
+      imean   = mean(i),
+      zwimean = sum(z*i)/sum(i), # Mean elevation weighted by intensities
+      zimean  = mean(z*i),       # Mean products of z by intensity
+      zsqmean = sqrt(mean(z^2))  # Quadratic mean
+    )
+        return(metrics)
+}
+
+answer <- lasmetrics(readNorm, myMetrics(Z, Intensity)) # finding the metrics
+outname <- paste0(substr("e386n5846_centralfma_ground_50cm_mga55", start = 1, stop = 10), "2016_metrics.csv") # creating the name for file saving
+dir.create(paste0("F:/RQ1_RQ2/metrics/"), showWarnings = FALSE) # create the directory
+write.csv (answer, file.path(paste0("F:/RQ1_RQ2/metrics/"), outname)) # writing the output in CSV formation
+```
+
+```{r making loop in R}
+normlist <- list.files(path = "F:/RQ1_RQ2/data/normalised/2016_plotwise_20m/2016_plotwise_20mL", pattern = ".las",  full.names = T, recursive = FALSE)
+# normlist <- normlist[1:1]
+for (i in 1:length(normlist)){}
+{
+Rnorm <- readLAS(normlist[i])
+lidarfilter <- lasfilter(Rnorm, Z>=0 & Z <=50) # filtering the data
+chm = grid_canopy(lidarfilter, res = 0.5, subcircle = 0.1, na.fill = "knnidw", k = 4) # preparing CHM
+chm = as.raster(chm) # saving as raster
+raster::plot(chm, col = height.colors(5)) # check the image after plotting
+}
+```
+
+
+```{r segmenting the tree}
+## Using the plot of 200m by 200m from normalized data for 11MS site for TIDA use
+Rnorm <- readLAS("F:/RQ1_RQ2/data/normalised/2016_200_200m/ROI11_16_norm.las")
+lidarfilter <- lasfilter(Rnorm, Z>=0 & Z <=50) # filtering the data
+chm = grid_canopy(lidarfilter, res = 0.5, subcircle = 0.1, na.fill = "knnidw", k = 4) # preparing CHM
+chm = as.raster(chm) # saving as raster
+raster::plot(chm, col = height.colors(5)) # check the image after plotting
+# file_name <- gsub('.*/', '', testlas)
+# file_name <- gsub(".las", "", file_name) # keep all the string before this pattern 
+outname <- paste0('F:/RQ1_RQ2/processing/', "11MS200m_CHM.tiff") 
+writeRaster(chm,  outname, overwrite = TRUE) # write CHM in raster as tiff file
+wseg <- lastrees(lidarfilter, "watershed", chm, th = 4,extra = TRUE) # segmenting the crown based on CHM using watershed method
+trees = lasfilter(lidarfilter, !is.na(treeID))
+class(trees)
+writeLAS(trees, './data/rawdata/treestest.las')
+str(trees)
+summary(trees)
+t1 <- trees@data$treeID
+plot(trees, color = "treeID", colorPalette = random.colors(100))
+plot(trees, color = "treeID", colorPalette = pastel.colors(100))
+ndf <- data.frame(trees@data$Classification, trees@data$treeID)
+class(ndf)
+str(ndf)
+head(trees)
+summary(ndf)
+head(ndf)
+tail(ndf, 500) # similarly we can display the xyz value with TreeID
+ncol(ndf)
+nrow(ndf)
+plot(trees, color="treeID")
+crown.shp <- rasterToPolygons(wseg, fun=NULL, n=4, na.rm=TRUE, digits=12, dissolve = TRUE)
+# crown.shp <- rasterToPolygons(tree, fun=NULL, n=4, na.rm=TRUE, digits=12, dissolve = TRUE)
+plot(crown.shp)
+crown.shp@data$Area <- rgeos::gArea(crown.shp, byid=T)
+writeOGR(crown.shp, "F:/RQ1_RQ2/processing", "11MS200m_CHM", driver="ESRI Shapefile", overwrite_layer = TRUE) # write segmentation as shapefile
+# Error in writeOGR(crown.shp, "F:/RQ1_RQ2/", file_name, driver = "ESRI Shapefile") : Creation of output file failed (DUE TO the "F:/RQ1_RQ2/processing/")
+
+
+## TRY THIS ONE ###
+normlist16 <- list.files(path = "F:/RQ1_RQ2/data/rawdata/2016/Clip_plot/MaxDist", pattern = ".las$",  full.names = T)
+
+for (i in 1:length(normlist16)){}
+{
+  file_name <- gsub('.*/', '', normlist16[i])
+  file_name <- gsub('.las', '_chm', file_name)
+  Rnorm <- readLAS(normlist16[i])
+  Nfilter <- lasfilter(Rnorm, Z>=0 & Z <=50)
+  summary(Nfilter)
+  plot(Nfilter)
+  z <- Nfilter@data$Z
+  hist(z, n=100)
+  lad = LAD(z)
+  plot(lad$z~lad$lad, type="l", cex=2, xlab="Leaf area density", ylab="Elevation (m)",xlim=c(0,0.20), ylim=c(0,35),   par(font.axis = 2),  font.lab=2)
+  chm = grid_canopy(Nfilter, res = 0.5, subcircle = 0.1, na.fill = "knnidw", k = 4)
+  chm = as.raster(chm)
+  outname <- paste0('F:/RQ1_RQ2/processing/2016CHM/2016_Maxdist/', file_name, ".tiff")
+  writeRaster(chm,  outname, overwrite = TRUE)
+  t2 <- lastrees(Nfilter, "watershed", chm, th = 4,extra = TRUE)
+  crown.shp <- rasterToPolygons(t2, dissolve = TRUE)
+  # crown.shp <- rasterToPolygons(tree, fun=NULL, n=4, na.rm=TRUE, digits=12, dissolve = TRUE)  
+  # plot(chm)
+  raster::plot(chm, col = height.colors(5)) # check the image
+  plot(crown.shp, add = T)
+  #Error in polypath(x = mcrds[, 1], y = mcrds[, 2], border = border, col = col, : plot.new has not been called yet
+  crown.shp@data$Area <- rgeos::gArea(crown.shp, byid=T)
+  writeOGR(crown.shp, 'F:/RQ1_RQ2/processing/2016CHM/2016_Maxdist', file_name, driver="ESRI Shapefile", overwrite_layer = TRUE)
+  }
+```
+
+```{r tree_detection lidR, eval = TRUE, echo = TRUE}
+Rnorm <- readLAS("./data/normalised/2016_200_200m/ROI11_16_norm.las")
+lidarfilter <- lasfilter(Rnorm, Z>=0 & Z <=50) # filtering the data
+chm = grid_canopy(lidarfilter, res = 0.5, subcircle = 0.1, na.fill = "knnidw", k = 4) # preparing CHM
+#Error in interpolate_knnidw(points, coord, k, p) : argument "p" is missing, with no default
+chm = as.raster(chm) # saving as raster
+raster::plot(chm, col = height.colors(5)) # check the image after plotting
+## point-cloud based
+ttops <- tree_detection(lidarfilter, 2.5, 5) # finding tree tops in the las object with 2 m window size and 5 meter minimum height
+plot(lidarfilter)
+ttops %$% rgl::points3d(X, Y, Z, col = "red", size = 5, add = TRUE) # doesn't work try into expample data of lidR
+# Error in do.call("rgl.points", c(list(x = x, y = y, z = z), .fixMaterialArgs(...,  : object 'Z' not found
+class(ttops)
+str(ttops)
+head(ttops)
+## converting data.frame to spatial points data frame (https://stackoverflow.com/questions/29736577/how-to-convert-data-frame-to-spatial-coordinates)
+ttopsdf <- ttops[,c(1:3)]
+spdf <- SpatialPointsDataFrame(coords = ttopsdf, data=ttops, proj4string = CRS("+proj=utm +zone=55 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m"))
+str(spdf)
+writeOGR(spdf, './data/Shapefile', 'ttops_11MS', driver = "ESRI Shapefile", overwrite_layer = TRUE) # creates the folder shapefile (if not already existed) and write shapefile as ttops_11MS.shp
+## creating treetops from the raster CHM
+
+# raster based
+chm = grid_canopy(lidarfilter, 0.5, subcircle = 0.15)
+chm = as.raster(chm)
+kernel = matrix(1,5,5) # window with 5*5 pixel i.e. 2.5 m
+chm <- raster::focal(chm, w = kernel, fun = median, na.rm = TRUE)
+#library(raster)
+ttops = tree_detection(chm, 5) # with 5 pixel and 5 meter height
+raster::plot(chm, col = height.colors(30))
+raster::plot(ttops, add = TRUE, col = "black", legend = FALSE)
+#Error in graphics::rasterImage(x, e[1], e[3], e[2], e[4], interpolate = interpolate) : plot.new has not been called yet
+
+```
+
+```{r plotting two object}
+plot(chm)
+plot(crown.shp)
+plot(crown.shp, add = T) # work in console or in R file but not here; Error in polypath(x = mcrds[, 1], y = mcrds[, 2], border = border, col = col, : plot.new has not been called yet
+```
+
+```{r saving the plots}
+png(filename = "F:/RQ1_RQ2/data/normalised/testplot2png")
+plot(chm)
+plot(crown.shp, add = T)
+draw.circle(363500, 5855100, 50, border="blue",lty=1,lwd=1)
+dev.off()
+```
+
+```{r making catalog of dataset}
+# Creating Catalog for each year datasets#
+cat07 <- catalog("F:/RQ1_RQ2/data/rawdata/2007")
+cat12 <- catalog("F:/RQ1_RQ2/data/rawdata/2012")
+cat16 <- catalog("L:/cep08-2015-16_central-highlands/irregular_points")
+
+## Adding year in each of the catalog#
+cat16$year <- 2016
+cat07$year <- 2007
+cat12$year <- 2012
+
+## Merging the catalog for all year into one#
+cat <- plyr::rbind.fill(list(cat07, cat12, cat16))
+```
+
+```{r subsetting the data at plot level}
+#Reading the shapefile of site location#
+plotloc <- readOGR("F:/RQ1_RQ2/data/Shapefile", "PlotCenterAfterField")
+
+# Get coordinates from an external file
+X = plotloc$Easting # x coordinates
+Y = plotloc$Northing # Y coordinates
+
+### Clipping the lidar data with plot location for 50*50 meter rectangle##
+clip07 = cat07%>% catalog_queries(X, Y, 25, 25, mc.cores = parallel::detectCores(8))
+clip12 = cat12%>% catalog_queries(X, Y, 25, 25, mc.cores = parallel::detectCores(8))
+clip16 = cat16%>% catalog_queries(X, Y, 25, 25, mc.cores = parallel::detectCores(8))
+
+
+## Saving the clip file as RDS for serialization##
+rds07 <- saveRDS(clip07, file = "./data/plotclip07.rds")
+rds12 <- saveRDS(clip12, file = "./data/plotclip12.rds")
+rds16 <- saveRDS(clip16, file = "./data/plotclip16.rds")
+
+## Reading the RDS file#
+RDS07 <- readRDS(file = "./data/plotclip07.rds")
+RDS12 <- readRDS(file = "./data/plotclip12.rds")
+RDS16 <- readRDS(file = "./data/plotclip16.rds")
+
+```
+
+```{r saving the data as .las file}
+mylist16 <- list(RDS16)
+mylist16 <- as.list(RDS16)
+class(mylist16)
+
+name <- names(mylist16)
+
+for (i in 1:length(mylist16)) {}# apply loop function for all the files in the folder
+{
+  file_name <- names(mylist16[i])
+  outname <- paste0('./data/normalised/2016_50_50m/', file_name, "_16.las")
+  sapply(mylist16[i], match.fun(writeLAS, descend = TRUE), outname)
+}
+
+mylist07 <- list(RDS07)
+mylist07 <- as.list(RDS07)
+class(mylist)
+
+for (i in 1:length(mylist07))#{}# apply loop function for all the files in the folder
+{
+  file_name <- names(mylist07[i])
+  outname <- paste0('./data/normalised/2007_50_50m/', file_name, "_07.las")
+  sapply(mylist07[i], match.fun(writeLAS, descend = TRUE), outname)
+}
+
+mylist12 <- list(RDS12)
+mylist12 <- as.list(RDS12)
+class(mylist12)
+
+for (i in 1:length(mylist12))#{}# apply loop function for all the files in the folder
+{
+  file_name <- names(mylist12[i])
+  outname <- paste0('./data/normalised/2012_50_50m/', file_name, "_12.las")
+  sapply(mylist12[i], match.fun(writeLAS, descend = TRUE), outname)
+}
+```
+
+```{r creating surface models using two different datasets in different folder, echo=FALSE}
+alist <- list.files(path ="F:/RQ1_RQ2/data/clip_las/Las_16", pattern = ".las$", full.names = T)
+
+# files <- list.files(pattern = "\\.dbf$") [https://stackoverflow.com/questions/4876813/using-r-to-list-all-files-with-a-specified-extension]
+# $ at the end means that this is end of string. "dbf$" will work too, but adding \\. (. is special character in regular expressions so you need to escape it) ensure that you match only files with extension .dbf (in case you have e.g. .adbf files).
+alist <- alist[30:30]
+
+
+blist <- list.files(path ="F:/RQ1_RQ2/data/clip_las/Las_07", pattern = ".las$", full.names = T)
+blist <- blist[26:26]
+
+for (i in 1:length(alist))#{}# apply loop function for all the files in the folder
+{
+  file_name <- gsub('.*/', '', alist[i])
+  # file_name <- gsub('.*_c', '', file_name) # keep all the string after this pattern (_c)
+  file_name <- gsub("_c.*$", "", file_name) # keep all the string before this pattern (_c) in the filename, read the below
+  
+#No need for substring, just use gsub: (https://stackoverflow.com/questions/15895050/using-gsub-to-extract-character-string-before-white-space-in-r)
+# gsub( " .*$", "", dob )
+# # [1] "9/9/43"   "9/17/88"  "11/21/48"
+# A space (), then any character (.) any number of times (*) until the end of the string ($). See ?regex to learn regular expressions.
+  alist_in <- alist[i]
+  blist_in <- blist[grep(file_name, blist[i])] # match the same file from blist using the filename from alist
+  blist_in <- blist[i] # list the same file after matching
+  RLas <- readLAS(alist_in)
+  MyDTM <- grid_terrain(RLas, res = 0.5, method = "knnidw", k = 6) # creating DTM from the file
+  rMyDTM <- raster::as.raster(MyDTM)
+  outname <- paste0('F:/RQ1_RQ2/processing/', file_name, "_DTM.tif")
+  writeRaster(rMyDTM,  outname, overwrite = TRUE) # creating DTM as tiff file
+  MyLas <- readLAS(blist_in) #read all the las files in the directory
+  MyNorm <- lasnormalize(MyLas, MyDTM) # Normalize the lasfiles based on 2016 DTM and non-ground file of 2007
+  #Error: 68322 points were not normalizable because the DTM contained NA values. Process aborded
+  outname <- paste0('F:/RQ1_RQ2/data/normalised/', file_name, "_norm.las") # naming the file with _norm suffix
+  writeLAS(MyNorm,  outname) # write the normalized file as las
+  MyDSM <- grid_metrics(MyLas, mean (Z), 0.5)
+  rMyDSM <- raster::as.raster(MyDSM)
+  outname <- paste0('F:/RQ1_RQ2/processing/', file_name, "_DSM.tif")
+  writeRaster(rMyDSM, outname, overwrite = TRUE) #  creating DSM as tiff file 
+}
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot. You can change the parameters from setup button in the chunk 
+
+```{r code for lastrees}
+#### Lastrees code ####
+
+LASfile <- system.file("extdata", "Tree.laz", package="lidR")
+las = readLAS(LASfile, XYZonly = TRUE, filter = "-drop_z_below 0")
+
+# compute a canopy image
+chm = grid_canopy(las, res = 0.5, subcircle = 0.1, na.fill = "knnidw", k = 4)
+chm = as.raster(chm)
+
+# smoothing post-process (e.g. 2x mean)
+kernel = matrix(1,3,3)
+chm = raster::focal(chm, w = kernel, fun = mean)
+chm = raster::focal(chm, w = kernel, fun = mean)
+raster::plot(chm, col = height.colors(50)) # check the image
+
+# segmentation
+lastrees(las, "dalponte2016", chm, th = 5)
+
+# plot points that actually are trees
+trees = lasfilter(las, !is.na(treeID))
+plot(trees, color = "treeID", colorPalette = random.colors(100))
+```
+
+```{r questions}
+# how to setup the CRS in lidar file
+# Error in polypath(x = mcrds[, 1], y = mcrds[, 2], border = border, col = col, : plot.new has not been called yet
+# Error in graphics::rasterImage(x, e[1], e[3], e[2], e[4], interpolate = interpolate) : plot.new has not been called yet
+surface1stret <- readNorm@data$Intensity[readNorm@data$ReturnNumber == 1] # subsetting the return number 1 from dataset
+surface2ndret <- readNorm@data$Intensity[readNorm@data$ReturnNumber == 2]
+surface3rdret <- readNorm@data$Intensity[readNorm@data$ReturnNumber == 3]
+surface4thret <- readNorm@data$Intensity[readNorm@data$ReturnNumber == 4]
+surface5thret <- readNorm@data$Intensity[readNorm@data$ReturnNumber == 5]
+# how to combine those return numbers??
+# how to calculate the ratio of first returns vs all the returns to find out index
+# how to correlate TreeID and display in the data.frame
+# how to display head function in Las data as we can do in other data.frame
+```
+
+```{r setting the header size}
+Rlas <- readLAS("F:/PilotTest_Confirmation/data/LasFiles/e368n5857_centralhighlands_2016jan09_mpts-c2_v20cm_ahd-mga55.las")
+DTM <- grid_terrain(Rlas, res = 20, method = "knnidw", k = 6)
+Norm <- lasnormalize(Rlas, DTM)
+Norm@header@data$`Header Size` <- 235
+
+# writeLAS(Norm, "F:/Data/tiles/Norm/test.las")
+writeLAS(Rlas, "F:/Data/tiles/Norm/test.las")
+
+rlas <- readLAS("F:/Data/tiles/Norm/test.las")
+
+
+infile <- "F:/PilotTest_Confirmation/data/LasFiles/Norm_Raw/2016/e368n5857__norm.las"
+
+head <- rlas::readlasheader(infile)
+
+rlas <- readLAS(infile)
+
+rlas@header@data$`Header Size` <- 235
+```
+
+```{r descriptive analysis of field data}
+### reading Excel file in R, this package reads both .xlsx and .xls format ###
+#install.packages("readxl")
+library(readxl)
+
+# Specify sheet by its name
+my_data <- read_excel("F:/RQ1_RQ2/data/DescriptiveData/MajorTreeInd.xlsx", sheet = "SummaryIndTreeMajor_v2")
+
+# Specify sheet by its index
+my_data <- read_excel("F:/RQ1_RQ2/data/DescriptiveData/MajorTreeInd.xlsx", sheet = 2)
+
+summary(my_data) # summary of the excel sheet
+treedata <- data.frame(my_data) # converting excel sheet to data frame
+str(treedata)
+treedata <- data.frame(treedata, na.rm = TRUE) # adding column in data frame
+str(treedata)
+ncol(treedata) 
+colnames(treedata)
+nrow(treedata)
+rownames(treedata)
+names(treedata) # read the names of header or variable
+treedata <- treedata[,1:22] # removing the unknown column
+str(treedata)
+quantile(treedata$Highestliveleaf, na.rm = TRUE) # discarding the NA and NaN data 
+highSev <- subset(treedata, SeverityClass== "High") # subsetting the high severity class only
+str(highSev)
+quantile(highSev$Highestliveleaf, na.rm = TRUE)
+ncol(highSev)
+refhighsev <- highSev[,1:22] # removing the unnecessary columns
+str(refhighsev)
+names(refhighsev)
+quantile(refhighsev$Highestliveleaf, na.rm = TRUE)
+HS1 <- subset(refhighsev, PlotID == "1_HS_A")
+str(HS1)
+quantile(HS1$Highestliveleaf, na.rm = TRUE)
+medSev <- subset(treedata, SeverityClass== "Medium")
+medSev11 <- subset(medSev, SiteID=="MS11")
+medSev11 <- medSev11[,1:22]
+colnames(medSev11)
+quantile(medSev11$Highestliveleaf, na.rm = TRUE)
+m <- mean(medSev11$Highestliveleaf, na.rm = TRUE)
+med <- median(medSev11$Highestliveleaf, na.rm = TRUE)
+summary(medSev11$Highestliveleaf, na.rm = TRUE)
+
+## for tree DBH
+library(ggplot2)
+
+DBHplot <- ggplot(treedata, aes(SiteID, DBHOB)) + geom_boxplot()
+DBHplot <- ggplot(treedata, aes(SiteID, DBHOB)) + geom_boxplot() + facet_grid(.~SeveriyClass)
+DBHplot <- ggplot(treedata, aes(SiteID, DBHOB, fill = SeverityClass)) + geom_boxplot()  
+DBHplot + theme_bw() + labs(x = "Name of Sites", y = "DBHOB(cm)")
+
+ggsave("DBHboxplot.png", plot = last_plot(), device = NULL, path = NULL,
+       scale = 1, width = NA, height = NA, units = c("in", "cm", "mm"),
+       dpi = 300, limitsize = TRUE)
+
+ggsave("DBHboxplot1.png", plot = last_plot()) # saving the plots
+
+Hthighestplot <- ggplot(treedata, aes(SiteID, Highestliveleaf, fill = SeverityClass)) + geom_boxplot()+ theme_bw() + labs(x = "Name of Sites", y = "Highest height (m)")
+ggsave("Hthighestplot.png", plot = last_plot()) # saving the plots
+
+Htloweststplot <- ggplot(treedata, aes(SiteID, Lowestliveleaf, fill = SeverityClass)) + geom_boxplot()+ theme_bw() + labs(x = "Name of Sites", y = "Lowest height (m)")
+ggsave("Htloweststplot.png", plot = last_plot()) # saving the plots
+
+Topdeadplot <- ggplot(treedata, aes(SiteID, Topdead, fill = SeverityClass)) + geom_boxplot()+ theme_bw() + labs(x = "Name of Sites", y = "Top dead height (m)")
+ggsave("Topdeadplot.png", plot = last_plot()) # saving the plots
+
+CBHplot <- ggplot(treedata, aes(SiteID, CBH, fill = SeverityClass)) + geom_boxplot()+ theme_bw() + labs(x = "Name of Sites", y = "Crown Base height (m)")
+ggsave("CBHplot.png", plot = last_plot()) # saving the plots
+
+NSBulkplot <- ggplot(treedata, aes(SiteID, NSBulk, fill = SeverityClass)) + geom_boxplot()+ theme_bw() + labs(x = "Name of Sites", y = "Crown Bulk Diam NS (m)")
+ggsave("NSBulkplot.png", plot = last_plot()) # saving the plots
+
+EWBulkplot <- ggplot(treedata, aes(SiteID, EWBulk, fill = SeverityClass)) + geom_boxplot()+ theme_bw() + labs(x = "Name of Sites", y = "Crown Bulk Diam EW (m)")
+ggsave("EWBulkplot.png", plot = last_plot()) # saving the plots
+
+NSExtplot <- ggplot(treedata, aes(SiteID, NSExt, fill = SeverityClass)) + geom_boxplot()+ theme_bw() + labs(x = "Name of Sites", y = "Crown Bulk Diam NS Extension (m)")
+ggsave("NSExtplot.png", plot = last_plot()) # saving the plots 
+
+EWExtplot <- ggplot(treedata, aes(SiteID, EWExt, fill = SeverityClass)) + geom_boxplot()+ theme_bw() + labs(x = "Name of Sites", y = "Crown Bulk Diam EW Extension (m)")
+ggsave("EWExtplot.png", plot = last_plot()) # saving the plots
+
+EWExtplot <- ggplot(treedata, aes(SiteID, EWExt, fill = SeverityClass)) + geom_boxplot()+ theme_bw() + labs(x = "Name of Sites", y = "Crown Bulk Diam EW Extension (m)")
+ggsave("EWExtplot.png", plot = last_plot()) # saving the plots
+
+DBHplot <- ggplot(treedata, aes(SeverityClass, DBHOB)) + geom_boxplot()  
+DBHplot + theme_bw() + labs(x = "Name of Sites", y = "DBHOB(cm)")
+ggsave("Severityplot.png", plot = last_plot()) # saving the plots
+
+DBHplot <- ggplot(treedata, aes(Species, DBHOB, fill = SeverityClass)) + geom_boxplot()  
+DBHplot + theme_bw() + labs(x = "Major Species", y = "DBHOB(cm)")
+ggsave("Speciesplot.png", plot = last_plot()) # saving the plots
+
+Highesthtplot <- ggplot(treedata, aes(SeverityClass, Highestliveleaf, fill = Status)) + geom_boxplot()  
+Highesthtplot + theme_bw() + labs(x = "Severity type", y = "Highest height (m)")
+ggsave("Highesthtplot.png", plot = last_plot()) # saving the plots
+
+
+### some practice of data frame ###
+nrow((treedata))
+treedata1 <- treedata[1:24,1:9] # selecting cetrtain rows and columns
+treedata2 <- treedata[98:123, 1:9]
+treedata3 <-treedata[225:248, 1:9]
+treedata4 <-treedata[320:343, 1:9]
+
+
+treedataN <- treedata[c(1:24,98:123,225:248, 320:343), ] # selecting several different rows and all the columns
+
+foursev <- data.frame(treedataN) # making new data frame
+names(foursev)
+FourSecCom <- subset(treedata, SeverityClass = "Low") 
+
+DBHplot <- ggplot(foursev, aes(PlotID, DBHOB, fill = SeverityClass)) + geom_boxplot()  
+DBHplot + theme_bw() + labs(x = "Name of plots", y = "DBHOB(cm)")
+ggsave("SeverityvsPlot.png", plot = last_plot()) # saving the plots
+
+TopHeightplot <- ggplot(foursev, aes(PlotID, Highestliveleaf, fill = SeverityClass)) + geom_boxplot()  
+TopHeightplot + theme_bw() + labs(x = "Name of plots", y = "Top Live height (m)")
+ggsave("TopHeightPlot.png", plot = last_plot()) # saving the plots
+
+
+### Analysis for minor trees ####
+my_data <- read_excel("F:/RQ1_RQ2/data/DescriptiveData/MinorTreeDetail.xlsx", sheet = "SummaryIndTreeMinor_v1")
+summary(my_data) # summary of the excel sheet
+treedataMinor <- data.frame(my_data) # converting excel sheet to data frame
+str(treedataMinor)
+names(treedataMinor) # read the names of header or variable
+
+DBHplot <- ggplot(treedataMinor, aes(SiteID, DBHOB, fill = SeverityClass)) + geom_boxplot()  
+DBHplot + theme_bw() + labs(x = "Name of Sites", y = "DBHOB(cm)")
+
+ggsave("DBHboxplotMinor.png", plot = last_plot()) # saving the plots
+
+DBHplot <- ggplot(treedata, aes(SeverityClass, DBHOB)) + geom_boxplot()  
+DBHplot + theme_bw() + labs(x = "Name of Sites", y = "DBHOB(cm)")
+ggsave("SeverityplotMinor.png", plot = last_plot()) # saving the plots
+
+DBHplot <- ggplot(treedataMinor, aes(Species, DBHOB, fill = SeverityClass)) + geom_boxplot()  
+DBHplot + theme_bw() + labs(x = "Major Species", y = "DBHOB(cm)")
+ggsave("SpeciesplotMinor.png", plot = last_plot()) # saving the plots
+
+#### Regression model for height ####
+my_data <- read_excel("F:/RQ1_RQ2/data/DescriptiveData/SummaryIndTree_04122017.xls", sheet = "CombinedMajorMinor")
+summary(my_data) # summary of the excel sheet
+combined <- data.frame(my_data) # converting excel sheet to data frame
+str(combined)
+names(combined) # read the names of header or variable
+
+
+nonht <- combined[384:778, 11]
+ht <- combined[1:383,11]
+dbh <- combined[1:383,9]
+str(ht)
+str(dbh)
+length(ht)
+length(dbh)
+# scatter plot
+plot(ht~dbh, xlab = "DBHOB (cm)", ylab = "Top height of the trees (m)")
+x <- dbh
+y <- ht
+cor(x, y) # finding correlation of dbh and height
+
+# model generation
+modelht <- lm(y~x)
+summary(modelht)
+
+y <- 18.072 + 0.171 # regression model
+
+dbhnonheight <- combined[384:778,9] # dbh range which does not have height value
+x <- dbhnonheight # x as a response variable
+
+Ht <- numeric() # creating empty vector
+x <- dbhnonheight
+dbh1 <- list(x=combined[384:778,9])
+dbh1
+for (i in 1:length(dbh1))
+{
+  Ht[i] <- 18.072 + 0.171*i
+  Ht
+}
+
+Ht
+ ## This model  does not predict reality so uses the excel sheet using untercept and slope value for height calculation
+
+height <- numeric() # creating empty vector
+dbh <- c(1,2,3,4,5,6)
+for (i in 1:length(dbh)){
+  height[i] <- 18.072 + 0.171*x
+}
+
+height
+
+### saving the value in csv and data frame 
+output <- write.csv(height, file ="nonht.csv")
+combined[384:778,11] <- height
+combined
+output1 <- write.csv(combined, file ="newDF.csv")
+
+### correlating DBH and Ht after adding height column ####
+my_data <- read_excel("F:/RQ1_RQ2/data/DescriptiveData/SummaryIndTree_04122017.xls", sheet = "CombinedMajorMinorHtAdded")
+summary(my_data) # summary of the excel sheet
+allht <- data.frame(my_data) # converting excel sheet to data frame
+str(allht)
+names(allht) # read the names of header or variable
+x <- allht$DBHOB
+y <- allht$Highestliveleaf
+cor(x, y)
+#[1] 0.5516669
+
+#### Calculating crown depth ####
+
+my_data <- read_excel("F:/RQ1_RQ2/data/DescriptiveData/MajorTreeInd.xlsx", sheet = "MajorMinorHtCrownDepthAdded")
+
+# Specify sheet by its index
+#my_data <- read_excel("F:/RQ1_RQ2/data/DescriptiveData/MajorTreeInd.xlsx", sheet = 2)
+
+summary(my_data) # summary of the excel sheet
+treedata <- data.frame(my_data) # converting excel sheet to data frame
+str(treedata)
+names(treedata) # read the names of header or variable
+
+## for tree DBH
+# install.packages("ggplot2")
+library(ggplot2)
+
+cdepthplot <- ggplot(treedata, aes(SiteID, CrownDepth_height)) + geom_boxplot()
+cdepthplot <- ggplot(treedata, aes(SiteID, CrownDepth_height)) + geom_boxplot() + facet_grid(.~SeveriyClass)
+cdepthplot <- ggplot(treedata, aes(SiteID, CrownDepth_height, fill = SeverityClass)) + geom_boxplot()  
+cdepthplot + theme_bw() + labs(x = "Name of Sites", y = "Crown depth (m)")
+
+
+# install.packages("DescTools")
+library(DescTools)
+
+summarystat <- Desc(treedata, plotit = TRUE) # finding the descriptive statistics in R
+class(summarystat)
+str(summarystat)
+datasummary <- data.frame(summarystat)
+
+summarystat <- Desc(as.data.frame(treedata, plotit = TRUE)) # finding the descriptive statistics in R
+
+## but could not write the output in csv or excel????
+class(summarystat)
+
+
+#### Field vs Lidar height ####
+#### Regression model for height ####
+my_data <- read_excel("F:/RQ1_RQ2/data/DescriptiveData/SummaryIndTree_10122017.xls", sheet = "LidarVsFieldHtEdit")
+summary(my_data) # summary of the excel sheet
+plotht <- data.frame(my_data) # converting excel sheet to data frame
+str(plotht)
+names(plotht) # read the names of header or variable
+x <- plotht$MeanHt_Field
+y <- plotht$MeanHt_Lidar
+cor(x, y) # finding correlation of dbh and height
+plot(x~y)
+plot(x~y, xlab = "Field measured height (m)", ylab = "Lidar derived height (m)", main = "Height comparison")
+abline(lm(x~y))
+modelht <- lm(y~x)
+summary(modelht)
+
+install.packages("PROTOLIDAR")
+```
+
+```{r installation and upgrading}
+#### Upgrading to R 3.4.3 on Windows ####
+install.packages("installr") # install 
+setInternet2(TRUE) # only for R versions older than 3.3.0
+installr::updateR() # updating R.
+# If you wish it to go faster, run: installr::updateR(T)
+installr::updateR(T)
+
+version
+```
+
+```{r ITC crown segmentation}
+# library(lidR)
+# library(rlas)
+# library(magrittr)
+# library(dplyr)
+# library(data.table)
+# library(rgdal)
+# library(raster)
+# library(rgeos)
+# library(sp)
+# library(rgdal)
+# library(EBImage)
+# library(plyr)
+# install.packages("itcSegment")
+# install.packages("maptools")
+# install.packages("methods")
+# install.packages("grDevices")
+
+library(itcSegment)
+library(maptools)
+library(grDevices)
+library(methods)
+
+seglist <- list.files(path = "F:/RQ1_RQ2/processing/2007CHM", pattern = ".tif", full.names = T)
+seglist <- seglist[1:1]
+
+
+for (i in 1:length(seglist)){}
+  {
+  file_name <- gsub('.*/', '', seglist[i]) # removes all / (slash) and dot . for every word
+  file_name <- substr(file_name, 1, 7) # extract the word until first _
+  #file_name <- gsub('', 'seg', file_name) # rename the file for 07 with tile index
+ 
+  imgData <- raster(seglist[i])
+  se<-itcIMG(imgData,epsg=28355)
+  summary(se)
+  # plot(imgData)
+  # plot(se, add = T)
+  # plot(se,axes=T)
+  #outname <- paste0('F:/RQ1_RQ2/processing/2007Seg/', file_name)
+  writeOGR(se, "F:/RQ1_RQ2/processing/2007Seg", "07ROI10_itc", driver="ESRI Shapefile")
+  #writeOGR(se, "D:/RQ1_RQ2/output", "itcSeg", driver="ESRI Shapefile")
+  }
+
+# outname <- paste0('F:/RQ1_RQ2/processing/2007Seg/', filename(imgData))
+# writeOGR(se, "F:/RQ1_RQ2/processing/2007Seg", "test", driver="ESRI Shapefile")
+
+lasseglist <- list.files(path = "F:/RQ1_RQ2/processing/2007norm", pattern = ".las", full.names = TRUE)
+lasseglist <- lasseglist[2:4]
+for (i in 1:length(lasseglist))#{}
+  {
+  RLas <- readLAS(lasseglist[i])
+  RLas <- readLAS("F:/RQ1_RQ2/processing/2007norm/07_ROI10_norm.las")
+  plot(RLas)
+  lidarfilter <- lasfilter(RLas, Z>=0 & Z <=50)
+  plot(lidarfilter)
+  chm = grid_canopy(lidarfilter, res = 0.5, subcircle = 0.4, na.fill = "knnidw", k = 8)
+  chm = as.raster(chm)
+  #raster::plot(chm, col = height.colors(5)) # check the image
+  t2 <- lastrees(lidarfilter, "watershed", chm, th = 4,extra = TRUE)
+  t2 <- lastrees(lidarfilter, "dalponte2016", chm, th = 4,extra = TRUE)
+  t2 <- lastrees(lidarfilter, "li2012") # result into the NULL values
+  crown.shp <- rasterToPolygons(t2$Crown, dissolve = TRUE) # for dalponte2016 since it produces two raster layer
+  crown.shp <- rasterToPolygons(t2$Maxima, dissolve = TRUE)
+  crown.shp <- rasterToPolygons(t2, dissolve = TRUE) # for dalponte2016 since it produces two raster layer
+  crown.shp@data$Area <- rgeos::gArea(crown.shp, byid=T) # provides the area of the crown
+  writeOGR(crown.shp, "F:/RQ1_RQ2/processing/2007Seg", "07ROI10_dalp_max", driver="ESRI Shapefile")
+}
+
+
+#### 2016 ####
+  imgData <- raster("F:/RQ1_RQ2/data/normalised/ROI10_16.tif")
+  se<-itcIMG(imgData,epsg=28355)
+  summary(se)
+  # plot(imgData)
+  # plot(se, add = T)
+  # plot(se,axes=T)
+  #outname <- paste0('F:/RQ1_RQ2/processing/2007Seg/', file_name)
+  writeOGR(se, "F:/RQ1_RQ2/processing/2016Seg", "16ROI10_itc", driver="ESRI Shapefile")
+
+
+  RLas <- readLAS("F:/RQ1_RQ2/data/normalised/16_ROI10_norm.las")
+  #plot(RLas)
+  lidarfilter <- lasfilter(RLas, Z>=0 & Z <=50)
+  #plot(lidarfilter)
+  chm = grid_canopy(lidarfilter, res = 0.5, subcircle = 0.4, na.fill = "knnidw", k = 8)
+  chm = as.raster(chm)
+  #raster::plot(chm, col = height.colors(5)) # check the image
+  t2 <- lastrees(lidarfilter, "watershed", chm, th = 4,extra = TRUE)
+  t2 <- lastrees(lidarfilter, "dalponte2016", chm, th = 4,extra = TRUE)
+  t2 <- lastrees(lidarfilter, "li2012") # result into the NULL values
+  crown.shp <- rasterToPolygons(t2$Crown, dissolve = TRUE) # for dalponte2016 since it produces two raster layer
+  crown.shp <- rasterToPolygons(t2$Maxima, dissolve = TRUE) 
+  crown.shp <- rasterToPolygons(t2, dissolve = TRUE) 
+  #crown.shp@data$Area <- rgeos::gArea(crown.shp, byid=T) # provides the area of the crown
+  writeOGR(crown.shp, "F:/RQ1_RQ2/processing/2016Seg", "16ROI10_dalp_max", driver="ESRI Shapefile")
+    ```
+    
+```{r LEARNING SESSION}
+# Shift + click to open the link in R
+#### Learning Spatial Data analysis #### (https://www.r-bloggers.com/incase-you-missed-it-my-webinar-on-spatial-data-analysis-with-r/)
+getClass("Spatial") # provides the class and subclass of the library such as "SpatialPointsDataFrame" is one of the class
+getSlots("SpatialPointsDataFrame")
+getClass("lidR")
+
+# know about slots
+setClass("track", slots = c(x="numeric", y="numeric"))
+myTrack <- new("track", x = -4:4, y = exp(-4:4))
+slot(myTrack, "x")
+slot(myTrack, "y") <- log(slot(myTrack, "y"))
+utils::str(myTrack)
+
+getSlots("track") # or
+getSlots(getClass("track"))
+slotNames(class(myTrack)) # is the same as
+slotNames(myTrack)
+
+#You can use .libPaths() to see which libraries are currently active. Here are mine:
+.libPaths()
+lapply(.libPaths(), dir) # to see what pakages installed in R and what are the libraries
+```
+
+```{r renaming the file}
+#### -Renaming all the files in a folder ####
+a <- list.files(path = "J:/2007_NG_R", pattern = "") # list the files which have at least one few common character as mga55 in this case 
+a
+#b <- paste0('I:/Raw_RS_Data/LiDAR/IntersectionData/2007_rawdata/irregular_ground/Test/New', substr(a, start = 1, stop = 9), ".las") # rename with the few of the characters only and add the New as prefix  
+b <- paste0('J:/2007_NG_R/', substr(a, start = 1, stop = 9), ".las")# rename with the few of the characters only in newly created folder
+b
+file.rename(a, b)
+
+a <- list.files(path = "J:/2007_NG_R", pattern = "", full.names = TRUE) # list the files which have at least one few common character as mga55 in this case 
+a
+#b <- paste0('I:/Raw_RS_Data/LiDAR/IntersectionData/2007_rawdata/irregular_ground/Test/New', substr(a, start = 1, stop = 9), ".las") # rename with the few of the characters only and add the New as prefix  
+b <- paste0("J:/2007_NG_R/", substr(a, start = 1, stop = 9), ".las") # # rename with the few of the characters only in newly created folder
+b
+
+setwd("I:/Raw_RS_Data/LiDAR/IntersectionData/2007_rawdata/irregular_ground/Test")
+getwd()
+
+# library(rgdal)
+# library(sp)
+# library(rgeos)
+# library(rgl)
+# library(magrittr)
+# library(dtplyr)
+# library(dplyr)
+# library(raster)
+# library(lidR)
+
+#### -Renaming all the files in a folder ####
+a <- list.files(path = ".", pattern = "") # list the files which have at least one few common character as mga55 in this case 
+a
+#b <- paste0('I:/Raw_RS_Data/LiDAR/IntersectionData/2007_rawdata/irregular_ground/Test/New', substr(a, start = 1, stop = 9), ".las") # rename with the few of the characters only and add the New as prefix  
+b <- paste0('I:/Raw_RS_Data/LiDAR/IntersectionData/2007_rawdata/irregular_ground/Test/New/', substr(a, start = 1, stop = 9), ".las") # # rename with the few of the characters only in newly created folder
+b
+file.rename(a, b)
+
+file.rename(a, b)
+
+## didnot work for 2007_NG_Irr folder
+```
+
+```{r sensitivity analysis}
+RLas <- readLAS("F:/RQ1_RQ2/data/normalised/Subplot/16_ROI1_norm_1.las")
+lidarfilter <- lasfilter(RLas, Z>=0 & Z <=50)
+plot(lidarfilter)
+Bigplot <- readLAS("F:/RQ1_RQ2/data/normalised/16_ROI1_norm.las")
+las <- lasfilter(Bigplot, Z>=0 & Z <=50)
+plot(las)#, color = "Classification", colorPalette = heat.colors(50), bg = "black", trim = 1)
+chm1 = grid_canopy(las, 0.5)
+plot(chm1)
+chm2 = grid_canopy(las, 0.5, subcircle = 0.2)
+plot(chm2)
+chm3 = grid_canopy(las, 0.25, subcircle = 0.2)
+plot(chm3)
+chm4 = grid_canopy(las, 0.75, subcircle = 0.2)
+plot(chm4)
+chm5 = grid_canopy(las, 1, subcircle = 0.2)
+plot(chm5)
+chm4 = grid_tincanopy(las, 0.25, 0)
+plot(chm4)
+chm5 = grid_tincanopy(las, 0.25, thresholds = c(0,2,5,10,15), max_edge = c(0,1))
+plot(chm5)
+chm6 = grid_tincanopy(las, 0.25, c(0,2,5,10,15), c(0,1) , subcircle = 0.2)
+plot(chm6)
+```
+
+```{r reading ASCII file for las, eval= FALSE}
+#### Read ASCII file directly ####
+readasc <- raster("F:/RQ1_RQ2/data/rawdata/2016/e391n5847_centralhighlands_2016jan09_int1m_v20cm_mga55.asc")
+plot(readasc)
+Wraster <- writeRaster(readasc, filename = "F:/RQ1_RQ2/data/rawdata/2016/testint.tif", format="GTiff", overwrite=TRUE)
+plot(Wraster)
+```
+
+```{r HELP, eval=FALSE}
+# https://yihui.name/knitr/
+# https://yihui.name/knitr/demos/
+# https://github.com/yihui/knitr-examples
+# https://www.rstudio.com/wp-content/uploads/2015/03/rmarkdown-reference.pdf
+# https://github.com/yihui/knitr-book
+remove.packages('Rcpp', .libPaths())
+devtools::install_github("Jean-Romain/lidR", dependencies=TRUE)
+install.packages("Rcpp")
+```
