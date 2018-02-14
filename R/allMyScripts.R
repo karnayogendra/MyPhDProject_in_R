@@ -1,0 +1,22 @@
+# Standard error function
+se <- function(x)
+  sqrt(var(x, na.rm=TRUE) / length(na.omit(x)))
+
+#### r installing necessary packages for lidar data processing ####
+library(tidyverse)
+library(plyr)
+library(Rcpp)
+library(knitr)
+library(rgl)
+library(lidR)
+library(rlas)
+library(magrittr)
+library(dplyr)
+library(data.table)
+library(rgdal)
+library(raster)
+library(rgeos)
+library(sp)
+library(EBImage)
+library(ggplot2)
+library(readxl)
